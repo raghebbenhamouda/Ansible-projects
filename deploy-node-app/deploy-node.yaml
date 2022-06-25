@@ -1,0 +1,55 @@
+---
+- name: Install node and npm
+  hosts: aws-webserver
+  become: True
+  become_user: root # beacuse we can not ssh to ec2 directly using root user, so we switch after to root after the conncetion is established
+  tasks:
+    - name: update apt repo and cache
+      apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
+    - name: install nodejs and npm 
+      apt:
+        pkg:
+          - nodejs
+          - npm
+
+- name: Create new linux user for node app # best practice because root user has all permissions
+  hosts: aws-webserver
+  become: True
+  become_user: root
+  vars_files:
+    - project-vars
+  tasks:
+    - name: Create linux user
+      user: 
+        name: "{{linux_user}}"
+        comment: ragheb Admin
+        group: admin 
+
+- name: Deploy nodejs app
+  vars_files:
+    - project-vars
+  become: True
+  become_user: "{{linux_user}}"
+  hosts: aws-webserver
+  
+  tasks:
+    - name: Unpack the nodejs file # copy and unarchiving nodejs file
+      unarchive: 
+        src: "{{location}}/nodejs-app-{{version}}.tgz"
+        dest: "{{user_home_directory}}"   
+    - name: Install dependencies
+      npm: 
+        path: "{{user_home_directory}}/package/"
+    - name: Start the application
+      command: 
+        chdir: "{{user_home_directory}}/package/app"
+        cmd: node server
+      async: 1000 # to execute the command in backgroud because it blocks our terminal, timeout=1000
+      poll: 0 # execute mutlti tasks in playbook concrurrently
+    - name: Ensure app is running
+      shell: ps aux | grep node # similar to command module but it will let us do every thing but command is more secure
+      register: app_status # registing the result of this command into a var called app_status
+    - debug: msg={{app_status.stdout_lines}} # print the app_status. {{}} used to refrence var in yaml files. this varible is a dict so we can access the values inside the dict like this.
+
+
+

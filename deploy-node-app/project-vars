@@ -1,0 +1,5 @@
+version: 1.0.0 
+location: /home/ragheb/Desktop/node-app
+linux_user: ragheb
+user_home_directory: /home/{{linux_user}}
+
